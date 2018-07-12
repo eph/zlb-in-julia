@@ -91,6 +91,7 @@ function fixedpoint(params,poly,alphacoeff0,slopeconxx,bbt,bbtinv,xgrid,statezlb
 
 end
 
+
 function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
 
     # Input
@@ -102,12 +103,12 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
     nshockgrid :: Array{Int64}
         
     # Initilize Variables
-    capt = 100000
+    const capt = 100000
     statezlbinfo = zeros(Int64,ns)
     endog_emean = Array{Float64}(linsol.nvars)
     msvbounds = Array{Float64}(2*(nmsv+linsol.nexogcont))
     shockindex = Array{Int64}(linsol.nexog-linsol.nexogcont)
-    countzlbstates = Array{Int64}(ns)
+    countzlbstates = zeros(Int64,ns)
     msvhigh = Array{Float64}(nmsv,1)
     msvlow = Array{Float64}(nmsv,1)
     innovations = Array{Float64}(linsol.nexog,1)
@@ -118,13 +119,17 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
     #get random normals
     iseed = MersenneTwister(101294)
     randn!(iseed,xrandn)  
+    
+    #FOR TESTING
+    xrandnFortran=readdlm("xrandn.txt")
+    xrandn=reshape(xrandnFortran,linsol.nexog,capt)
 
     nmsvplus = nmsv + linsol.nexogcont
     convergence = true
 
-    counter = 0
+    counter = 1
     countzlb = 0
-    displacement = 400
+    const displacement = 400
     endogvar[1:nmsv,1] = linsol.endogsteady[1:nmsv]
     msvhigh = log.(exp.(linsol.endogsteady[1:nmsv])*2.0)
     msvlow = log.(exp.(linsol.endogsteady[1:nmsv])*0.01)
@@ -133,21 +138,21 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
     while true
         explosiveerror = false
         llim = counter+1
-        ulim = min(capt,counter+displacement)
+        ulim = min(capt+1,counter+displacement)
         for ttsim in llim:ulim
-            innovations[1:linsol.nexogshock] = xrandn[1:linsol.nexogshock,ttsim]
+            innovations[1:linsol.nexogshock] = xrandn[1:linsol.nexogshock,ttsim-1]
             if (linsol.nexogcont > 0) 
-                innovations[linsol.nexog-linsol.nexogcont+1:linsol.nexog] = xrandn[linsol.nexog-linsol.nexogcont+1:linsol.nexog,ttsim]
+                innovations[linsol.nexog-linsol.nexogcont+1:linsol.nexog] = xrandn[linsol.nexog-linsol.nexogcont+1:linsol.nexog,ttsim-1]
             end
-            endogvar[:,ttsim+1] = decrlin(endogvar[:,ttsim],innovations,linsol)
-            if (endogvar[5,ttsim+1] < 0.0)
+            endogvar[:,ttsim] = decrlin(endogvar[:,ttsim-1],innovations,linsol)
+            if (endogvar[5,ttsim] < 0.0)
                 countzlb = countzlb + 1
                 fill!(shockindex,1)
                 for i in 1:linsol.nexogshock
-                    if (endogvar[linsol.nvars-linsol.nexog+i,ttsim+1] < shockbounds[i,1]) 
+                    if (endogvar[linsol.nvars-linsol.nexog+i,ttsim] < shockbounds[i,1]) 
                         shockindex[i] = 1
                     else  #interpolation case
-                        shockindex[i]  = min( nshockgrid[i], floor(Int64,1.0+(endogvar[linsol.nvars-linsol.nexog+i,ttsim+1]-shockbounds[i,1])/shockdistance[i]) )#Fortran defaults to round down so I do as well
+                        shockindex[i]  = min( nshockgrid[i], floor(Int64,1.0+(endogvar[linsol.nvars-linsol.nexog+i,ttsim]-shockbounds[i,1])/shockdistance[i]) )#Fortran defaults to round down so I do as well
                     end
                 end
                 stateindex = exogposition(shockindex,nshockgrid,linsol.nexog-linsol.nexogcont) #MAY HAVE TO CONVERY ARRAY TO INT
@@ -160,11 +165,11 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
 
         # Checkloop
         for ttsim in llim:ulim
-            non_explosive = ( all(msvlow.<endogvar[1:nmsv,ttsim+1].<msvhigh) ) 
-            explosiveerror = ( (non_explosive == false) | (isnan(endogvar[1,ttsim+1]) == true) )
+            non_explosive = ( all(msvlow.<endogvar[1:nmsv,ttsim].<msvhigh) ) 
+            explosiveerror = ( (non_explosive == false) | (isnan(endogvar[1,ttsim]) == true) )
             if (explosiveerror == true)
                 counter = max(ttsim-200,0)
-                randn!(iseed,xrandn) 
+                #randn!(iseed,xrandn) 
                 if (explosiveerror == true) 
                     println("solution exploded at ", ttsim, " vs ulim ", ulim)
                     count_exploded = count_exploded + 1
@@ -191,7 +196,7 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
             counter = counter + displacement
         end
 
-        if (counter > capt)
+        if (counter > capt+1)
             break
         end
 
@@ -350,15 +355,11 @@ function nonlinearsolver(params,solution)
         alphacoeff0 = solution.alphacoeff
     end
     
-    #FOR TESTING
-    #solution.alphacoeff=alphacoeff0
-    #return solution, true
 
     #find metaparameters that solve model 
     alphacoeffstar,convergence,avgerror=fixedpoint(params,solution.poly,alphacoeff0,slopeconxx,solution.bbt,solution.bbtinv,solution.xgrid,statezlbinfo)
+    
     solution.alphacoeff = alphacoeffstar
-    filename="alphacoeffstar-070918.txt"
-    writedlm(filename,alphacoeffstar)
 
     return solution, convergence
 end

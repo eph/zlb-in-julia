@@ -32,13 +32,13 @@ function fixedpoint(params,poly,alphacoeff0,slopeconxx,bbt,bbtinv,xgrid,statezlb
     params :: Array{Float64}
     alphacoeff0 :: Array{Float64}
     slopeconxx :: Array{Float64}
-    statezlbinfo :: Array{Int}
+    statezlbinfo :: Array{Int64}
     
     #Initilize variables
     alphacoeffstar=zeros(poly.nfunc*poly.ngrid,2*poly.ns)
 
     niter = 150
-    tolfun = 1.0e-04
+    tolfun = 1.0e-04 #NORMALLY SET TO 1.0e-4, BUT FOR TESTING SET IT LOWER
     step = 7.0e-01
     alphacur = Array{Float64}(poly.nfunc*poly.ngrid,2*poly.ns)
     alphass = Array{Float64}(2*poly.nfunc,poly.ngrid)
@@ -49,7 +49,7 @@ function fixedpoint(params,poly,alphacoeff0,slopeconxx,bbt,bbtinv,xgrid,statezlb
     convergence = false
     for ii in 1:niter
         avgerror = 0.0
-        for ss in 1:poly.ns
+        @time for ss in 1:poly.ns
             polyappnew = zeros(2*poly.nfunc,poly.ngrid)
             errsum_grid = 0.0
             for igrid in 1:poly.ngrid
@@ -83,7 +83,11 @@ function fixedpoint(params,poly,alphacoeff0,slopeconxx,bbt,bbtinv,xgrid,statezlb
             return alphacoeffstar,convergence,avgerror
         end
         alphacur = (1.0-step)*alphacur + step*alphanew
+        filename="alphacur-070918.txt"
+        writedlm(filename,alphacur)
     end
+              
+    return alphacoeffstar,convergence,avgerror
 
 end
 
@@ -91,15 +95,15 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
 
     # Input
     linsol :: linsoldetails
-    nmsv :: Int
-    ns :: Int
+    nmsv :: Int64
+    ns :: Int64
     shockbounds :: Array{Float64}
     shockdistance :: Array{Float64}
     nshockgrid :: Array{Int64}
         
     # Initilize Variables
     capt = 100000
-    statezlbinfo = zeros(Int,ns)
+    statezlbinfo = zeros(Int64,ns)
     endog_emean = Array{Float64}(linsol.nvars)
     msvbounds = Array{Float64}(2*(nmsv+linsol.nexogcont))
     shockindex = Array{Int64}(linsol.nexog-linsol.nexogcont)
@@ -143,7 +147,7 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
                     if (endogvar[linsol.nvars-linsol.nexog+i,ttsim+1] < shockbounds[i,1]) 
                         shockindex[i] = 1
                     else  #interpolation case
-                        shockindex[i]  = min( nshockgrid[i], floor(Int,1.0+(endogvar[linsol.nvars-linsol.nexog+i,ttsim+1]-shockbounds[i,1])/shockdistance[i]) )#Fortran defaults to round down so I do as well
+                        shockindex[i]  = min( nshockgrid[i], floor(Int64,1.0+(endogvar[linsol.nvars-linsol.nexog+i,ttsim+1]-shockbounds[i,1])/shockdistance[i]) )#Fortran defaults to round down so I do as well
                     end
                 end
                 stateindex = exogposition(shockindex,nshockgrid,linsol.nexog-linsol.nexogcont) #MAY HAVE TO CONVERY ARRAY TO INT
@@ -221,14 +225,14 @@ end
 function initialalphas(nfunc,ngrid,ns,nvars,nexog,nexogshock,nexogcont,nmsv,exoggrid,slopeconxx,xgrid,bbtinv,aalin,bblin,endogsteady)
 
     #Input
-    nfunc :: Int
-    ngrid :: Int
-    ns :: Int
-    nvars :: Int
-    nexog :: Int
-    nmsv :: Int
-    nexogshock :: Int
-    nexogcont :: Int
+    nfunc :: Int64
+    ngrid :: Int64
+    ns :: Int64
+    nvars :: Int64
+    nexog :: Int64
+    nmsv :: Int64
+    nexogshock :: Int64
+    nexogcont :: Int64
     exoggrid :: Array{Float64}
     slopeconxx :: Array{Float64}
     xgrid :: Array{Float64}
@@ -352,9 +356,8 @@ function nonlinearsolver(params,solution)
 
     #find metaparameters that solve model 
     alphacoeffstar,convergence,avgerror=fixedpoint(params,solution.poly,alphacoeff0,slopeconxx,solution.bbt,solution.bbtinv,solution.xgrid,statezlbinfo)
-
     solution.alphacoeff = alphacoeffstar
-    filename="alphacoeffstar-070218.txt"
+    filename="alphacoeffstar-070918.txt"
     writedlm(filename,alphacoeffstar)
 
     return solution, convergence

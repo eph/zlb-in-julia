@@ -5,8 +5,7 @@ module simulate_model
     import polydef: polydetails, linsoldetails, solutiondetails
     import model_details: decr, decrlin
     export simulate_data, simulate_irfs
-
-
+    
 function simulate_data(capt,params,poly,linsol,alphacoeff,nonlinearswitch,seed=101293)
 
     # Input
@@ -93,7 +92,6 @@ function simulate_data(capt,params,poly,linsol,alphacoeff,nonlinearswitch,seed=1
     
     return modeldata
 end 
-
 
 function euler_errorsfcn(neulererrors,endogvarm1,endogvar,params,poly,alphacoeff,nlerrorswitch,linsol)
 
