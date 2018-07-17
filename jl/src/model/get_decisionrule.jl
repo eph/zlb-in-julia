@@ -8,14 +8,12 @@ module get_decisionrule
     using DSGE
     export nonlinearsolver
 
-function dgemm(alpha,A,B,beta,C)
+function dgemm(alpha,A,B)
     alpha :: Float64
-    beta :: Float64
-    A :: Array
-    B :: Array
-    C :: Array
+    A :: Array{Float64}
+    B :: Array{Float64}
     
-    C=alpha*A*B + beta*C
+    C=alpha*A*B
     
     return C
     
@@ -58,7 +56,7 @@ function fixedpoint(params,poly,alphacoeff0,slopeconxx,bbt,bbtinv,xgrid,statezlb
             end
 
             nrow = 2*poly.nfunc
-            alphass=dgemm(1.0,polyappnew,bbtinv,0.0,alphass) # MAKE SURE THIS WORKS
+            alphass=dgemm(1.0,polyappnew,bbtinv) # MAKE SURE THIS WORKS
             for igrid in 1:poly.ngrid
                 for ifunc in 1:poly.nfunc
                     alphanew[(ifunc-1)*poly.ngrid+igrid,ss] = alphass[ifunc,igrid] #ALPHASS IS COMING FROM DGEMM ABOVE
@@ -69,7 +67,6 @@ function fixedpoint(params,poly,alphacoeff0,slopeconxx,bbt,bbtinv,xgrid,statezlb
             
         end
         avgerror = avgerror/(2*poly.ns) 
-        println("fixedpoint - ii, avgerror: ", ii, ", ", avgerror)
 
         if (any([isnan(a) for a in alphanew])==true)
             convergence = false
@@ -83,8 +80,6 @@ function fixedpoint(params,poly,alphacoeff0,slopeconxx,bbt,bbtinv,xgrid,statezlb
             return alphacoeffstar,convergence,avgerror
         end
         alphacur = (1.0-step)*alphacur + step*alphanew
-        filename="alphacur-070918.txt"
-        writedlm(filename,alphacur)
     end
               
     return alphacoeffstar,convergence,avgerror
@@ -277,13 +272,13 @@ function initialalphas(nfunc,ngrid,ns,nvars,nexog,nexogshock,nexogcont,nmsv,exog
             end
 
             #get linear solution
-            endogvar=dgemv(1.0, aalin, endogvarm1[:,i], 0.0, endogvar) #REMAKE THIS FUNCTION
-            exogpart=dgemv(1.0, bblin, exogval, 0.0, exogpart) # REMAKE THIS FUNCTION 
+            endogvar=dgemv(1.0, aalin, endogvarm1[:,i]) #REMAKE THIS FUNCTION
+            exogpart=dgemv(1.0, bblin, exogval) # REMAKE THIS FUNCTION 
             endogvar = endogsteady[1:nvars] + endogvar + exogpart
             yy[:,i] = endogvar[[10,11,18,19,21,22,13] ]
         end
   
-        alphass=dgemm(1.0,yy,bbtinv,0.0,alphass) #REMAKE THIS FUNCTION
+        alphass=dgemm(1.0,yy,bbtinv) #REMAKE THIS FUNCTION
 
         for i in 1:ngrid
             for ifunc in 1:nfunc

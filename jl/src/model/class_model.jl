@@ -114,7 +114,8 @@ function new_model(zlbswitch,inputfile="data/glss_data.txt")
     m.solution.poly.nindplus = 1
 
     # number of grid points : shock to safe assets, MEI, tech, r shock, g shock, technology
-    m.solution.poly.nshockgrid=[7 3 3 3 3 1]
+    # m.solution.poly.nshockgrid=[7 3 3 3 3 1]
+    m.solution.poly.nshockgrid=[3 1 1 1 1 1]
 
     npara = m.solution.poly.nparams
     nvars = m.solution.poly.nvars+m.solution.poly.nexog
@@ -125,7 +126,7 @@ function new_model(zlbswitch,inputfile="data/glss_data.txt")
         m.solution.poly.indplus[1] = 3
     end
 
-    m.solution.poly.zlbswitch = true
+    m.solution.poly.zlbswitch = zlbswitch
 
     #Initilize values for the solution
     initializesolution!(m.solution)

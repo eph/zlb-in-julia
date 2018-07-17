@@ -32,7 +32,7 @@ include("src/model/class_model.jl")
     
     ndsets=1
     capt_simdata=1000 #Should be set to 1000
-    modelindex=0
+    modelindex=1
 
     #iniitialize solution details
     if (modelindex == 0)

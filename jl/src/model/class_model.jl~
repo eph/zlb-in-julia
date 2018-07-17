@@ -13,9 +13,9 @@ mutable struct model
     name :: String #"ghlss_v5_2"
     datafile :: String # "data/glss_data.txt"
     
-    nobs:: Int #7 no way to initilize some values and uninitilize others from what I can tell
-    T :: Int #125
-    neps :: Int #6
+    nobs:: Int64 #7 no way to initilize some values and uninitilize others from what I can tell
+    T :: Int64 #125
+    neps :: Int64 #6
     
     yy :: Array{Float64}
     HH :: Array{Float64}
@@ -23,9 +23,9 @@ mutable struct model
     solution :: solutiondetails #Had to include thses structs in this file to get this struct to work, will not allow structs to be loaded ...
     params :: Array{Float64}
 
-    npara :: Int
-    nvars :: Int
-    nexog :: Int
+    npara :: Int64
+    nvars :: Int64
+    nexog :: Int64
     
     model()=new()
 
@@ -114,7 +114,8 @@ function new_model(zlbswitch,inputfile="data/glss_data.txt")
     m.solution.poly.nindplus = 1
 
     # number of grid points : shock to safe assets, MEI, tech, r shock, g shock, technology
-    m.solution.poly.nshockgrid=[7 3 3 3 3 1]
+    # m.solution.poly.nshockgrid=[7 3 3 3 3 1]
+    m.solution.poly.nshockgrid=[3 2 2 2 2 1]
 
     npara = m.solution.poly.nparams
     nvars = m.solution.poly.nvars+m.solution.poly.nexog
@@ -144,7 +145,6 @@ function solve_serial(m, params)
     #Input
     m :: model
     params :: Array{Float64}
-    #logical :: convergence
 
     m.solution, convergence=nonlinearsolver(params, m.solution) 
     m.params = params
@@ -178,9 +178,9 @@ function simulate_modeldata(m,capt,nonlinearswitch,seed)
      
     #Input
     m :: model
-    capt :: Int
+    capt :: Int64
     nonlinearswitch :: Bool
-    seed :: Int
+    seed :: Int64
     
     #Initilize variables
     modeldata = Array{Float64}(m.solution.poly.nvars+2*m.solution.poly.nexog,capt)
@@ -195,10 +195,10 @@ function simulate_modelirfs(m,capt,nsim,shockindex,neulererrors)
 
     # Input
     m :: model
-    capt :: Int
-    nsim :: Int
-    shockindex :: Int
-    neulererrors :: Int
+    capt :: Int64
+    nsim :: Int64
+    shockindex :: Int64
+    neulererrors :: Int64
     
     # Initilize variables
     endogirf = Array{Float64}(m.solution.poly.nvars+m.solution.poly.nexog+2,capt)

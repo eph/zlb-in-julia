@@ -64,9 +64,6 @@ include("src/model/class_model.jl")
             #convergence = m.solve_parallel(m.params,nproc,rank)
         #else    
             m.solution, convergence = solve_serial(m,m.params) #ACTUAL CODE THAT SOVLES FOR ALPHA PARAMATERS
-    
-            #m.solution, convergence = nonlinearsolver(m.params,m.solution) #FOR TESTING
-
         #end
 
         if (convergence  == false) #if no solution, report this back to disk
