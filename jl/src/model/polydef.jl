@@ -1,4 +1,5 @@
 module polydef
+    import FastGaussQuadrature: gausshermite
     export linsoldetails, polydetails, solutiondetails, initializesolution!, setgridsize, 
         exoggridindex, ghquadrature,sparsegrid, smolyakpoly, initializelinearsolution!, initializetestsolution!
 
@@ -121,8 +122,8 @@ end
 function ghquadrature(nquadsingle,nexog) 
 
     # Input
-    nquadsingle :: Int
-    nexog :: Int
+    nquadsingle :: Int64
+    nexog :: Int64
 
     # Initilize Variables
     quadnodes_s=zeros(nquadsingle,1)
@@ -130,41 +131,9 @@ function ghquadrature(nquadsingle,nexog)
     ghnodes=zeros(nexog,nquadsingle^nexog)#Not sure I should make this zeros
     ghweights_mat=zeros(nexog,nquadsingle^nexog)#Not sure I should make this zeros
     ghweights=Array{Float64}(nquadsingle^nexog,1)#Not sure I should make this zeros
-    nquadsingleset = [3 5 7] 
-    const_pi = 3.14159265358979323846
+    const const_pi = 3.14159265358979323846
     
-    if (any([nquadsingle == i for i in nquadsingleset]) == false) #Julia version of checking for element in vector
-       println("WARNING: nquadsingle must equal 3,5, or 7 (ghquadrature in polydef) and you set nquadsingle = ", nquadsingle)
-    end
-
-    if (nquadsingle == 3)
-        quadnodes_s[1] = -sqrt(6.0)/2.0
-        quadnodes_s[2] = 0.0
-        quadweights_s[1] = sqrt(const_pi)/6.0
-        quadweights_s[2] = 2.0*sqrt(const_pi)/3.0
-    elseif (nquadsingle == 5)
-        quadnodes_s[1] =  -2.0201870456
-        quadnodes_s[2] =  -0.9585724646d
-        quadnodes_s[3] =   0.0
-        quadweights_s[1] = 0.019953242059
-        quadweights_s[2] = 0.39361932315
-        quadweights_s[3] = 0.94530872048
-    else
-        quadnodes_s[1] =   -2.6519613568
-        quadnodes_s[2] =   -1.6735516287
-        quadnodes_s[3] =   -0.8162878828
-        quadnodes_s[4] =   0.0
-        quadweights_s[1] = 9.7117245
-        quadweights_s[2] = 0.054515582819
-        quadweights_s[3] = 0.4256072526
-        quadweights_s[4] = 0.8102646175568
-    end
-
-    middle_integer = div(nquadsingle+1,2)
-    for ie in 1:middle_integer-1
-        quadnodes_s[nquadsingle-ie+1] = -quadnodes_s[ie]
-        quadweights_s[nquadsingle-ie+1] = quadweights_s[ie]
-    end
+    quadnodes_s,quadweights_s=gausshermite(nquadsingle) ##
 
     nquad = nquadsingle^nexog
     blocksize = 1 #Must Initilize blocksize
