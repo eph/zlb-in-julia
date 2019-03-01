@@ -1,11 +1,12 @@
 include("simulate_model.jl")
 
 module class_model
+    using DelimitedFiles
 
-    import polydef: polydetails, linsoldetails, solutiondetails,initializesolution!, initializelinearsolution!
-    import model_details: decr, model_details_ss
-    import get_decisionrule: nonlinearsolver
-    import simulate_model: simulate_data, simulate_irfs
+    import Main.polydef: polydetails, linsoldetails, solutiondetails,initializesolution!, initializelinearsolution!
+    import Main.model_details: decr, model_details_ss
+    import Main.get_decisionrule: nonlinearsolver
+    import Main.simulate_model: simulate_data, simulate_irfs
     export model, load_data!, describe!, new_model, describe_params!, solve_serial, simulate_modeldata
 
 mutable struct model
@@ -34,7 +35,7 @@ end
 function load_data!(m)
 
     m :: model
-    m.yy = Base.DataFmt.readdlm(m.datafile) # I think this way will work best
+    m.yy = readdlm(m.datafile) # I think this way will work best
     
     return
 
@@ -114,26 +115,26 @@ function new_model(zlbswitch,inputfile="data/glss_data.txt")
     m.solution.poly.nindplus = 1
 
     # number of grid points : shock to safe assets, MEI, tech, r shock, g shock, technology
-    # m.solution.poly.nshockgrid=[7 3 3 3 3 1]
-    m.solution.poly.nshockgrid=[3 1 1 1 1 1]
+    #m.solution.poly.nshockgrid=[7 3 3 3 3 1]
+    m.solution.poly.nshockgrid=[7 2 2 2 2 1]
 
     npara = m.solution.poly.nparams
     nvars = m.solution.poly.nvars+m.solution.poly.nexog
     nexog = m.solution.poly.nexog
 
     if (m.solution.poly.nindplus == 1) 
-        m.solution.poly.indplus = Array{Int64}(m.solution.poly.nindplus,1)
+        m.solution.poly.indplus = Array{Int64}(undef,m.solution.poly.nindplus,1)
         m.solution.poly.indplus[1] = 3
     end
 
-    m.solution.poly.zlbswitch = zlbswitch
+    m.solution.poly.zlbswitch = false #zlbswitch
 
     #Initilize values for the solution
     initializesolution!(m.solution)
         
     #Allocates space and loads data
-    m.yy = Array{Float64}(m.nobs,m.T)
-    m.HH = Array{Float64}(m.nobs,m.nobs)
+    m.yy = Array{Float64}(undef,m.nobs,m.T)
+    m.HH = Array{Float64}(undef,m.nobs,m.nobs)
     load_data!(m)
         
     return m
@@ -183,7 +184,7 @@ function simulate_modeldata(m,capt,nonlinearswitch,seed)
     seed :: Int64
     
     #Initilize variables
-    modeldata = Array{Float64}(m.solution.poly.nvars+2*m.solution.poly.nexog,capt)
+    modeldata = Array{Float64}(undef,m.solution.poly.nvars+2*m.solution.poly.nexog,capt)
   
     modeldata = simulate_data(capt,m.params,m.solution.poly,m.solution.linsol,m.solution.alphacoeff,nonlinearswitch,seed) # NEED TO ADD THIS FUNCTION
     
@@ -201,11 +202,11 @@ function simulate_modelirfs(m,capt,nsim,shockindex,neulererrors)
     neulererrors :: Int64
     
     # Initilize variables
-    endogirf = Array{Float64}(m.solution.poly.nvars+m.solution.poly.nexog+2,capt)
-    linirf = Array{Float64}(m.solution.poly.nvars+m.solution.poly.nexog+2,capt)
-    euler_errors = Array{Float64}(2*neulererrors,capt)
-    endogvarshk0 = Array{Float64}(m.solution.poly.nvars+m.solution.poly.nexog)
-    premiumirf = Array{Float64}(2,capt)
+    endogirf = Array{Float64}(undef,m.solution.poly.nvars+m.solution.poly.nexog+2,capt)
+    linirf = Array{Float64}(undef,m.solution.poly.nvars+m.solution.poly.nexog+2,capt)
+    euler_errors = Array{Float64}(undef,2*neulererrors,capt)
+    endogvarshk0 = Array{Float64}(undef,m.solution.poly.nvars+m.solution.poly.nexog)
+    premiumirf = Array{Float64}(undef,2,capt)
     innov0 = zeros(m.solution.poly.nexog,1)
     endogvarbas0 = zeros(m.solution.poly.nvars+m.solution.poly.nexog)
   

@@ -2,10 +2,12 @@ include("model_details.jl")
 
 module get_decisionrule
 
-    import polydef: polydetails, linsoldetails, solutiondetails
-    import model_details: get_shockdetails, decr_euler, model_details_ss, decrlin, msv2xx, dgemv, exogposition
-    import linear_solution: get_aimsolution,lindecrule_markov
-    using DSGE
+    import Main.polydef: polydetails, linsoldetails, solutiondetails
+    import Main.model_details: get_shockdetails, decr_euler, model_details_ss, decrlin, msv2xx, dgemv, exogposition
+    import Main.linear_solution: get_aimsolution,lindecrule_markov
+    using Random
+    using DelimitedFiles
+    #using DSGE
     export nonlinearsolver
 
 function dgemm(alpha,A,B)
@@ -38,9 +40,9 @@ function fixedpoint(params,poly,alphacoeff0,slopeconxx,bbt,bbtinv,xgrid,statezlb
     niter = 150
     tolfun = 1.0e-04 #NORMALLY SET TO 1.0e-4, BUT FOR TESTING SET IT LOWER
     step = 7.0e-01
-    alphacur = Array{Float64}(poly.nfunc*poly.ngrid,2*poly.ns)
-    alphass = Array{Float64}(2*poly.nfunc,poly.ngrid)
-    alphanew = Array{Float64}(poly.nfunc*poly.ngrid,2*poly.ns) 
+    alphacur = Array{Float64}(undef,poly.nfunc*poly.ngrid,2*poly.ns)
+    alphass = Array{Float64}(undef,2*poly.nfunc,poly.ngrid)
+    alphanew = Array{Float64}(undef,poly.nfunc*poly.ngrid,2*poly.ns) 
         #fill!(alphanew,NaN) # Need to fill alphanew with NaN to check later
 
     alphacur = copy(alphacoeff0)
@@ -98,22 +100,23 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
     nshockgrid :: Array{Int64}
         
     # Initilize Variables
-    const capt = 100000
+    capt = 100000
     statezlbinfo = zeros(Int64,ns)
-    endog_emean = Array{Float64}(linsol.nvars)
-    msvbounds = Array{Float64}(2*(nmsv+linsol.nexogcont))
-    shockindex = Array{Int64}(linsol.nexog-linsol.nexogcont)
+    endog_emean = Array{Float64}(undef,linsol.nvars)
+    msvbounds = Array{Float64}(undef,2*(nmsv+linsol.nexogcont))
+    shockindex = Array{Int64}(undef,linsol.nexog-linsol.nexogcont)
     countzlbstates = zeros(Int64,ns)
-    msvhigh = Array{Float64}(nmsv,1)
-    msvlow = Array{Float64}(nmsv,1)
-    innovations = Array{Float64}(linsol.nexog,1)
-    xrandn = Array{Float64}(linsol.nexog,capt)
+    msvhigh = Array{Float64}(undef,nmsv,1)
+    msvlow = Array{Float64}(undef,nmsv,1)
+    innovations = Array{Float64}(undef,linsol.nexog,1)
+    xrandn = Array{Float64}(undef,linsol.nexog,capt)
     msv_std = zeros(nmsv+linsol.nexogcont)
     endogvar=zeros(linsol.nvars,capt+1)
 
     #get random normals
     iseed = MersenneTwister(101294)
     randn!(iseed,xrandn)  
+
     
     #FOR TESTING
     xrandnFortran=readdlm("xrandn.txt")
@@ -124,7 +127,7 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
 
     counter = 1
     countzlb = 0
-    const displacement = 400
+    displacement = 400
     endogvar[1:nmsv,1] = linsol.endogsteady[1:nmsv]
     msvhigh = log.(exp.(linsol.endogsteady[1:nmsv])*2.0)
     msvlow = log.(exp.(linsol.endogsteady[1:nmsv])*0.01)
@@ -134,6 +137,7 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
         explosiveerror = false
         llim = counter+1
         ulim = min(capt+1,counter+displacement)
+	
         for ttsim in llim:ulim
             innovations[1:linsol.nexogshock] = xrandn[1:linsol.nexogshock,ttsim-1]
             if (linsol.nexogcont > 0) 
@@ -147,7 +151,7 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
                     if (endogvar[linsol.nvars-linsol.nexog+i,ttsim] < shockbounds[i,1]) 
                         shockindex[i] = 1
                     else  #interpolation case
-                        shockindex[i]  = min( nshockgrid[i], floor(Int64,1.0+(endogvar[linsol.nvars-linsol.nexog+i,ttsim]-shockbounds[i,1])/shockdistance[i]) )#Fortran defaults to round down so I do as well
+                        shockindex[i]  = min( nshockgrid[i], floor(1.0+(endogvar[linsol.nvars-linsol.nexog+i,ttsim]-shockbounds[i,1])/shockdistance[i]) )#Fortran defaults to round down so I do as well
                     end
                 end
                 stateindex = exogposition(shockindex,nshockgrid,linsol.nexog-linsol.nexogcont) #MAY HAVE TO CONVERY ARRAY TO INT
@@ -184,6 +188,9 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
         end 
 
         if (convergence  == false)
+	    zlbfrequency = 100.0*countzlb/capt
+    	    scalebd = 3.0
+    	    endog_emean = sum(endogvar[:,2:(capt+1)], dims=2)/capt
             return endog_emean,zlbfrequency,msvbounds,statezlbinfo,convergence
         end
 
@@ -201,10 +208,10 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
     #that we include in polynomial part of approximated decision rule
     zlbfrequency = 100.0*countzlb/capt
     scalebd = 3.0
-    endog_emean = sum(endogvar[:,2:capt+1],2)/capt
+    endog_emean = sum(endogvar[:,2:capt+1],dims=2)/capt
 
     for counter in 1:nmsv
-        msv_std[counter] = sqrt( sum( (endogvar[counter,2:capt+1]-endog_emean[counter]).^2 )/(capt-1) )
+        msv_std[counter] = sqrt( sum( (endogvar[counter,2:capt+1].-endog_emean[counter]).^2 )/(capt-1) )
     end
     
     msvbounds[1:nmsv] = endog_emean[1:nmsv]-scalebd*msv_std
@@ -212,8 +219,8 @@ function simulate_linear(linsol,ns,nmsv,shockbounds,shockdistance,nshockgrid)
 
     #I RE WROTE THIS PART SINCE IT DIDNT MAKE SENSE
     for counter in 1:linsol.nexogcont
-        #println(size(endogvar),size(endog_emean),size(msv_std))
-        msv_std[nmsv+counter] = sqrt( sum( (endogvar[linsol.nvars-counter+1,2:capt+1]-endog_emean[linsol.nvars-counter+1]).^2 )/(capt-1) )
+        
+        msv_std[nmsv+counter] = sqrt( sum( (endogvar[linsol.nvars-counter+1,2:capt+1] -endog_emean[linsol.nvars-counter+1]).^2 )/(capt-1) )
         msvbounds[nmsv+counter] = endog_emean[linsol.nvars-counter+1]-scalebd*msv_std[nmsv+counter]
         msvbounds[nmsvplus+nmsv+counter] = endog_emean[linsol.nvars-counter+1]+scalebd*msv_std[nmsv+counter]
     end
@@ -242,10 +249,10 @@ function initialalphas(nfunc,ngrid,ns,nvars,nexog,nexogshock,nexogcont,nmsv,exog
     endogsteady :: Array{Float64}
 
     #Initilize variables       
-    endogvar = Array{Float64}(nvars)
-    exogpart = Array{Float64}(nvars)
-    slopeconxxmsv = Array{Float64}(2*nmsv)
-    slopeconcont = Array{Float64}(2*nexogcont)
+    endogvar = Array{Float64}(undef,nvars)
+    exogpart = Array{Float64}(undef,nvars)
+    slopeconxxmsv = Array{Float64}(undef,2*nmsv)
+    slopeconcont = Array{Float64}(undef,2*nexogcont)
     initialalphas = zeros(nfunc*ngrid,2*ns)
     alphass = zeros(nfunc,ngrid)
     endogvarm1 = zeros(nvars,ngrid)
@@ -302,20 +309,17 @@ function nonlinearsolver(params,solution)
     params :: Array{Float64}
 
     #Initilize Values
-    statezlbinfo = Array{Int64}(solution.poly.ns,1)
-    aalin = Array{Float64}(solution.poly.nvars,solution.poly.nvars)
-    bblin = Array{Float64}(solution.poly.nvars,solution.poly.nexog)
-    alphacoeff0 = Array{Float64}(solution.poly.nfunc*solution.poly.ngrid,2*solution.poly.ns)
-    alphacoeffstar = Array{Float64}(solution.poly.nfunc*solution.poly.ngrid,2*solution.poly.ns)
-    msvbounds = Array{Float64}(2*(solution.poly.nmsv+solution.poly.nexogcont),1)
-    slopeconxx = Array{Float64}(2*(solution.poly.nmsv+solution.poly.nexogcont),1)
-    endog_emean = Array{Float64}(solution.poly.nvars+solution.poly.nexog,1)
+    statezlbinfo = Array{Int64}(undef,solution.poly.ns,1)
+    aalin = Array{Float64}(undef,solution.poly.nvars,solution.poly.nvars)
+    bblin = Array{Float64}(undef,solution.poly.nvars,solution.poly.nexog)
+    alphacoeff0 = Array{Float64}(undef,solution.poly.nfunc*solution.poly.ngrid,2*solution.poly.ns)
+    alphacoeffstar = Array{Float64}(undef,solution.poly.nfunc*solution.poly.ngrid,2*solution.poly.ns)
+    msvbounds = Array{Float64}(undef,2*(solution.poly.nmsv+solution.poly.nexogcont),1)
+    slopeconxx = Array{Float64}(undef,2*(solution.poly.nmsv+solution.poly.nexogcont),1)
+    endog_emean = Array{Float64}(undef,solution.poly.nvars+solution.poly.nexog,1)
 
     #get shock details
-    solution.poly.exoggrid,solution.poly.shockbounds,solution.poly.shockdistance=get_shockdetails(solution.poly.nparams,
-                                                    solution.poly.nexog,solution.poly.nexogshock,solution.poly.nexogcont,
-                                                     solution.poly.ns,solution.number_shock_values,solution.poly.nshockgrid,
-                                                        params,solution.exogvarinfo)
+    solution.poly.exoggrid,solution.poly.shockbounds,solution.poly.shockdistance=get_shockdetails(solution.poly.nparams,solution.poly.nexog,solution.poly.nexogshock,solution.poly.nexogcont,solution.poly.ns,solution.number_shock_values,solution.poly.nshockgrid,params,solution.exogvarinfo)
 
     #get bounds after computing variances from linear solution; 
     #also decide which exogenous grid points need 2 polynomials instead of 1 based on whether ZLB is reached using linear solution
@@ -323,8 +327,8 @@ function nonlinearsolver(params,solution)
     solution.linsol.endogsteady = solution.poly.endogsteady
     params,solution.linsol=get_aimsolution(params,solution.linsol) #NEED TO ADD THIS FUNCTION
 
-    endog_emean,zlbfrequency,msvbounds,statezlbinfo,convergence=simulate_linear(solution.linsol,solution.poly.ns,
-                solution.poly.nmsv,solution.poly.shockbounds,solution.poly.shockdistance,solution.poly.nshockgrid)
+   endog_emean,zlbfrequency,msvbounds,statezlbinfo,convergence=simulate_linear(solution.linsol,solution.poly.ns,solution.poly.nmsv,solution.poly.shockbounds,solution.poly.shockdistance,solution.poly.nshockgrid)
+
     
     #check to see how many times the linear model wants a  "nearly-explosive" path
     if (convergence == false)
@@ -333,7 +337,7 @@ function nonlinearsolver(params,solution)
     
     nmsvplus = solution.poly.nmsv+solution.poly.nexogcont
     solution.poly.slopeconmsv[1:nmsvplus] = 2.0./(msvbounds[nmsvplus+1:2*nmsvplus]-msvbounds[1:nmsvplus]) #element wise division use "./" 
-    solution.poly.slopeconmsv[nmsvplus+1:2*nmsvplus] = -2.0*msvbounds[1:nmsvplus]./(msvbounds[nmsvplus+1:2*nmsvplus]-msvbounds[1:nmsvplus])-1.0
+    solution.poly.slopeconmsv[nmsvplus+1:2*nmsvplus] = -2.0*msvbounds[1:nmsvplus]./(msvbounds[nmsvplus+1:2*nmsvplus].-msvbounds[1:nmsvplus]).-1.0
     slopeconxx[1:nmsvplus] = 0.5*(msvbounds[nmsvplus+1:2*nmsvplus]-msvbounds[1:nmsvplus])
     slopeconxx[nmsvplus+1:2*nmsvplus] = msvbounds[1:nmsvplus] + 0.5*(msvbounds[nmsvplus+1:2*nmsvplus]-msvbounds[1:nmsvplus])
 

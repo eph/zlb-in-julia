@@ -2,9 +2,9 @@ include("polydef.jl")
 
 module linear_solution
 
-    import polydef: linsoldetails, polydetails, solutiondetails
+    import Main.polydef: linsoldetails, polydetails, solutiondetails, gensys
     export get_aimsolution, lindecrule_markov
-    using DSGE
+    #using DSGE
 
 function get_aimsolution(params,linsol)
 
@@ -13,10 +13,10 @@ function get_aimsolution(params,linsol)
     linsol :: linsoldetails
 
     # Initilize Variables
-    TT=Array{Float64}(42, 42)
-    RR=Array{Float64}(42, 8)
-    CC=Array{Float64}(42,1) 
-    eu=Array{Int64}(2,1) 
+    TT=Array{Float64}(undef,42, 42)
+    RR=Array{Float64}(undef,42, 8)
+    CC=Array{Float64}(undef,42,1) 
+    eu=Array{Int64}(undef,2,1) 
     QQ=zeros(8, 8)
     GAM0=zeros(42, 42)
     GAM1=zeros(42, 42) 
@@ -266,7 +266,7 @@ function get_aimsolution(params,linsol)
 
     #for shocks not included in nonlinear model, set innovation part of solution matrix to zero
     if (linsol.nexogshock+linsol.nexogcont < linsol.nexog)
-        linsol.sigma[:,linsol.nexogshock+1:linsol.nexog-linsol.nexogcont] = 0.0
+        linsol.sigma[:,linsol.nexogshock+1:linsol.nexog-linsol.nexogcont] .= 0.0
     end
 
     return params,linsol

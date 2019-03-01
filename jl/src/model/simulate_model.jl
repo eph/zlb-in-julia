@@ -2,8 +2,9 @@ include("get_decisionrule.jl")
 
 module simulate_model
 
-    import polydef: polydetails, linsoldetails, solutiondetails
-    import model_details: decr, decrlin
+    import Main.polydef: polydetails, linsoldetails, solutiondetails
+    import Main.model_details: decr, decrlin
+    using Random
     export simulate_data, simulate_irfs
     
 function simulate_data(capt,params,poly,linsol,alphacoeff,nonlinearswitch,seed=101293)
@@ -18,9 +19,9 @@ function simulate_data(capt,params,poly,linsol,alphacoeff,nonlinearswitch,seed=1
     seed :: Int #Optional Input, defaults to 101293
 
     # Initilize Variables
-    msvhigh = Array{Float64}(poly.nmsv)
-    msvlow = Array{Float64}(poly.nmsv)
-    xrandn = Array{Float64}(poly.nexog,capt)
+    msvhigh = Array{Float64}(undef,poly.nmsv)
+    msvlow = Array{Float64}(undef,poly.nmsv)
+    xrandn = Array{Float64}(undef,poly.nexog,capt)
     modeldata=zeros(poly.nvars+2*poly.nexog,capt)
     endogvar=zeros(poly.nvars+poly.nexog,capt+1)
     innovations=zeros(poly.nexog,1)
@@ -106,11 +107,11 @@ function euler_errorsfcn(neulererrors,endogvarm1,endogvar,params,poly,alphacoeff
     nlerrorswitch :: Bool
 
     # Initilize Variables
-    euler_errorsfcn = Array{Float64}(neulererrors,1)
-    endogvarp = Array{Float64}(poly.nvars+poly.nexog,1)
-    lendogvar = Array{Float64}(poly.nvars+poly.nexog,1)
-    lendogvarp = Array{Float64}(poly.nvars+poly.nexog,1)
-    ev = Array{Float64}(6,1)
+    euler_errorsfcn = Array{Float64}(undef,neulererrors,1)
+    endogvarp = Array{Float64}(undef,poly.nvars+poly.nexog,1)
+    lendogvar = Array{Float64}(undef,poly.nvars+poly.nexog,1)
+    lendogvarp = Array{Float64}(undef,poly.nvars+poly.nexog,1)
+    ev = Array{Float64}(undef,6,1)
     exp_eul = zeros(6,1)
     exp_var = zeros(6,1)
     innovations = zeros(poly.nexog,1)
@@ -237,17 +238,17 @@ function simulate_irfs(capt,ndraw,params,poly,alphacoeff,linsol,endogvarbas0,end
     innov0 :: Array{Float64}
           
     # Initilize variables
-    endogvarbas = Array{Float64}(poly.nvars+poly.nexog,capt+1)
-    endogvarshk = Array{Float64}(poly.nvars+poly.nexog,capt+1)
-    endoglinbas = Array{Float64}(poly.nvars+poly.nexog,capt+1)
-    endoglinshk = Array{Float64}(poly.nvars+poly.nexog,capt+1)
-    endoglinshkm1_exp = Array{Float64}(poly.nvars+poly.nexog,1)
-    endoglinshk_exp = Array{Float64}(poly.nvars+poly.nexog,1)
-    varsort = Array{Float64}(ndraw,1)
-    innovplus = Array{Float64}(poly.nexog,1)
-    xrandn = Array{Float64}(poly.nexog,capt*ndraw)
-    errors_nl = Array{Float64}(neulererrors,1)
-    errors_lin = Array{Float64}(neulererrors,1)
+    endogvarbas = Array{Float64}(undef,poly.nvars+poly.nexog,capt+1)
+    endogvarshk = Array{Float64}(undef,poly.nvars+poly.nexog,capt+1)
+    endoglinbas = Array{Float64}(undef,poly.nvars+poly.nexog,capt+1)
+    endoglinshk = Array{Float64}(undef,poly.nvars+poly.nexog,capt+1)
+    endoglinshkm1_exp = Array{Float64}(undef,poly.nvars+poly.nexog,1)
+    endoglinshk_exp = Array{Float64}(undef,poly.nvars+poly.nexog,1)
+    varsort = Array{Float64}(undef,ndraw,1)
+    innovplus = Array{Float64}(undef,poly.nexog,1)
+    xrandn = Array{Float64}(undef,poly.nexog,capt*ndraw)
+    errors_nl = Array{Float64}(undef,neulererrors,1)
+    errors_lin = Array{Float64}(undef,neulererrors,1)
     wishlist_level = Array{Float64}(Int,nwish_level)   
     endogirf = zeros(poly.nvars+poly.nexog+2,capt)  #+2 should match nwish_level
     linirf = zeros(poly.nvars+poly.nexog+2,capt)  #+2 shoud match nwish_level
